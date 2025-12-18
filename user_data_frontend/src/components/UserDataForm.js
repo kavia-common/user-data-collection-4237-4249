@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { buildApiUrl, apiFetch } from '../utils/apiConfig';
 
 // Pure White minimalist style variables
 const styleVars = {
@@ -45,22 +46,24 @@ const styleVars = {
     transition: 'background 0.2s'
   },
   buttonDisabled: {
-    background: '#9CA3AF', // disabled gray
+    background: '#9CA3AF',
     cursor: 'not-allowed'
   },
   success: {
     background: '#10B981',
     color: '#fff',
     borderRadius: '5px',
-    padding: '8px 0px',
-    margin: '8px 0'
+    padding: '8px 12px',
+    margin: '8px 0',
+    fontSize: '0.95rem'
   },
   error: {
     background: '#EF4444',
     color: '#fff',
     borderRadius: '5px',
-    padding: '8px 0px',
-    margin: '8px 0'
+    padding: '8px 12px',
+    margin: '8px 0',
+    fontSize: '0.95rem'
   },
   label: {
     fontWeight: 500,
@@ -78,15 +81,16 @@ const styleVars = {
 
 // Validation helper (simple email regex)
 function validateEmail(email) {
-  // rfc5322 official looks too complex; this is a simple version for UI
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 // PUBLIC_INTERFACE
+/**
+ * User form for submitting name, email, age.
+ * 
+ * @param {function} onSubmission - Callback called after submission attempt with success boolean
+ */
 function UserDataForm({ onSubmission }) {
-  /** User form for submitting name, email, age.
-  *  onSubmission(success) - called after successful post
-  */
   const [fields, setFields] = useState({ name: '', email: '', age: '' });
   const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -98,8 +102,11 @@ function UserDataForm({ onSubmission }) {
   if (!fields.email.trim()) errors.email = "Email is required";
   else if (!validateEmail(fields.email.trim())) errors.email = "Must be a valid email";
   if (fields.age === '') errors.age = "Age is required";
-  else if (!/^\d+$/.test(fields.age.trim())) errors.age = "Age must be a non-negative integer";
-  else if (parseInt(fields.age, 10) < 0) errors.age = "Age must be >= 0";
+  else if (!/^\d+$/.test(fields.age.trim())) errors.age = "Age must be a number";
+  else {
+    const ageNum = parseInt(fields.age, 10);
+    if (ageNum < 1 || ageNum > 150) errors.age = "Age must be between 1 and 150";
+  }
 
   const canSubmit = Object.keys(errors).length === 0 && !submitting;
 
@@ -114,40 +121,42 @@ function UserDataForm({ onSubmission }) {
   };
 
   // PUBLIC_INTERFACE
+  /**
+   * Handle form submission
+   * Validates data and sends to backend API
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setTouched({ name: true, email: true, age: true });
     if (!canSubmit) return;
+    
     setSubmitting(true);
     setAlert(null);
 
     try {
-      const resp = await fetch('http://localhost:3001/api/user-data/', {
+      const url = buildApiUrl('/api/user-data/');
+      const payload = {
+        name: fields.name.trim(),
+        email: fields.email.trim(),
+        age: parseInt(fields.age, 10)
+      };
+
+      await apiFetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: fields.name.trim(), email: fields.email.trim(), age: parseInt(fields.age, 10) })
+        body: JSON.stringify(payload)
       });
 
-      if (resp.ok) {
-        setAlert({ type: 'success', msg: 'Submission successful!' });
-        setFields({ name: '', email: '', age: '' });
-        setTouched({});
-        if (onSubmission) onSubmission(true);
-      } else {
-        let message;
-        try {
-          const data = await resp.json();
-          message = data.error || resp.statusText;
-        } catch {
-          message = resp.statusText;
-        }
-        throw new Error(message);
-      }
+      setAlert({ type: 'success', msg: 'Submission successful!' });
+      setFields({ name: '', email: '', age: '' });
+      setTouched({});
+      if (onSubmission) onSubmission(true);
     } catch (err) {
-      setAlert({ type: 'error', msg: 'Error: ' + (err && err.message ? err.message : "Submission failed") });
+      const errorMsg = err && err.message ? err.message : "Submission failed";
+      setAlert({ type: 'error', msg: errorMsg });
       if (onSubmission) onSubmission(false);
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   return (
@@ -203,7 +212,8 @@ function UserDataForm({ onSubmission }) {
           id="form-age"
           name="age"
           type="number"
-          min={0}
+          min={1}
+          max={150}
           value={fields.age}
           onChange={handleChange}
           onBlur={handleBlur}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 import UserDataForm from './components/UserDataForm';
 import SubmissionsList from './components/SubmissionsList';
+import HealthCheck from './components/HealthCheck';
 
 // Main app background color (Pure White minimalist)
 const mainBgStyle = {
@@ -32,7 +33,8 @@ function App() {
 
   return (
     <div className="App" style={mainBgStyle}>
-      <header style={{ width: '100%', textAlign: 'center', marginBottom: '16px' }}>
+      <HealthCheck />
+      <header style={{ width: '100%', textAlign: 'center', marginBottom: '16px', paddingTop: '20px' }}>
         <button
           className="theme-toggle"
           onClick={toggleTheme}

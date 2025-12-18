@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildApiUrl, apiFetch } from '../utils/apiConfig';
 
 // Reuse color variables
 const styleVars = {
@@ -42,8 +43,9 @@ const styleVars = {
     color: '#fff',
     borderRadius: '6px',
     width: '100%',
-    padding: '8px 0px',
-    margin: '0.4rem 0'
+    padding: '10px 12px',
+    margin: '0.4rem 0',
+    fontSize: '0.95rem'
   },
   loading: {
     color: '#374151',
@@ -52,10 +54,12 @@ const styleVars = {
 };
 
 // PUBLIC_INTERFACE
+/**
+ * Fetch and display the user-data submissions list.
+ * 
+ * @param {number} triggerReload - Can be incremented by parent to force re-fetch (e.g., after submission)
+ */
 function SubmissionsList({ triggerReload }) {
-  /** Fetch and display the user-data submissions list. 
-      triggerReload (number): Can be incremented by parent to force re-fetch (e.g., after submission)
-  */
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -63,33 +67,37 @@ function SubmissionsList({ triggerReload }) {
   // Effect for fetching
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
-    setErrorMsg(null);
+    
+    const fetchSubmissions = async () => {
+      setLoading(true);
+      setErrorMsg(null);
 
-    fetch('http://localhost:3001/api/user-data/', {
-      method: 'GET'
-    })
-      .then(async resp => {
-        if (!resp.ok) {
-          let msg;
-          try {
-            const d = await resp.json();
-            msg = d.error || resp.statusText;
-          } catch { msg = resp.statusText; }
-          throw new Error(msg);
-        }
-        return resp.json();
-      })
-      .then(data => {
+      try {
+        const url = buildApiUrl('/api/user-data/');
+        const responseData = await apiFetch(url, { method: 'GET' });
+        
         if (isMounted) {
-          setList(Array.isArray(data) ? data : []);
+          // Backend returns {count, data} structure
+          const submissions = responseData.data || responseData;
+          setList(Array.isArray(submissions) ? submissions : []);
         }
-      })
-      .catch(err => {
-        if (isMounted) setErrorMsg('Error: ' + (err && err.message ? err.message : 'Failed to fetch submissions'));
-      })
-      .finally(() => isMounted && setLoading(false));
-    return () => { isMounted = false; };
+      } catch (err) {
+        if (isMounted) {
+          const errorMessage = err && err.message ? err.message : 'Failed to fetch submissions';
+          setErrorMsg(errorMessage);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchSubmissions();
+    
+    return () => { 
+      isMounted = false; 
+    };
   }, [triggerReload]);
 
   return (
